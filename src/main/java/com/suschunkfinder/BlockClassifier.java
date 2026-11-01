@@ -24,10 +24,12 @@ public final class BlockClassifier {
     public static final byte STRONG_MARKER = 8; // natural structure marker (spawner, sculk...)
     public static final byte WEAK_MARKER = 9;   // natural structure hint, needs several
     public static final byte STONE_BRICK = 10;  // stronghold hint, needs very many
+    public static final byte COMBAT = 11;       // PvP leftovers: anchors, glowstone, tnt... (no weight)
+    public static final byte KIT = 12;          // ender chests + shulkers (ignored inside combat zones)
 
     public static final int FIRST_INDICATOR = 3;
     /** Weight per class, indexed by class id. */
-    public static final int[] WEIGHTS = {0, 0, 0, 6, 4, 2, 1, 1, 0, 0, 0};
+    public static final int[] WEIGHTS = {0, 0, 0, 6, 4, 2, 1, 1, 0, 0, 0, 0, 6};
 
     private static final Map<Block, Byte> CACHE = new HashMap<>();
 
@@ -41,20 +43,23 @@ public final class BlockClassifier {
     private static final Set<String> STONE_BRICKS = Set.of(
             "stone_bricks", "mossy_stone_bricks", "cracked_stone_bricks", "chiseled_stone_bricks",
             "stone_brick_stairs", "stone_brick_slab", "mossy_stone_brick_stairs", "mossy_stone_brick_slab");
+    /** Blocks left behind by crystal / anchor / tnt fights. Count for 0 and mark a combat zone. */
+    private static final Set<String> COMBAT_IDS = Set.of(
+            "respawn_anchor", "glowstone", "tnt", "crying_obsidian", "cobweb");
     private static final Set<String> STORAGE_IDS = Set.of(
-            "chest", "trapped_chest", "barrel", "ender_chest", "hopper", "dropper", "dispenser");
+            "chest", "trapped_chest", "barrel", "hopper", "dropper", "dispenser");
     private static final Set<String> UTILITY_IDS = Set.of(
             "furnace", "blast_furnace", "smoker", "crafting_table", "smithing_table", "cartography_table",
             "fletching_table", "loom", "grindstone", "stonecutter", "anvil", "chipped_anvil", "damaged_anvil",
             "enchanting_table", "brewing_stand", "beacon", "lectern", "composter", "jukebox", "note_block",
-            "respawn_anchor", "conduit");
+            "conduit");
     private static final Set<String> REDSTONE_IDS = Set.of(
             "redstone_wire", "repeater", "comparator", "observer", "piston", "sticky_piston",
             "redstone_lamp", "redstone_block", "target", "daylight_detector", "redstone_torch",
-            "redstone_wall_torch", "tnt", "slime_block", "honey_block");
+            "redstone_wall_torch", "slime_block", "honey_block");
     private static final Set<String> BUILD_IDS = Set.of(
             "bricks", "iron_block", "gold_block", "diamond_block", "emerald_block", "lapis_block",
-            "netherite_block", "coal_block", "sea_lantern", "glowstone", "shroomlight",
+            "netherite_block", "coal_block", "sea_lantern", "shroomlight",
             "jack_o_lantern", "bone_block", "hay_block", "dried_kelp_block", "smooth_stone",
             "chiseled_quartz_block");
     private static final Set<String> DECOR_IDS = Set.of(
@@ -91,7 +96,10 @@ public final class BlockClassifier {
         if (WEAK.contains(id) || id.contains("copper_bulb") || id.contains("copper_grate")) return WEAK_MARKER;
         if (STONE_BRICKS.contains(id)) return STONE_BRICK;
 
-        if (STORAGE_IDS.contains(id) || id.endsWith("shulker_box") || id.contains("copper_chest")) return STORAGE;
+        if (COMBAT_IDS.contains(id)) return COMBAT;
+        if (id.equals("ender_chest") || id.endsWith("shulker_box")) return KIT;
+
+        if (STORAGE_IDS.contains(id) || id.contains("copper_chest")) return STORAGE;
         if (UTILITY_IDS.contains(id) || id.endsWith("_bed")) return UTILITY;
         if (REDSTONE_IDS.contains(id)) return REDSTONE;
 
