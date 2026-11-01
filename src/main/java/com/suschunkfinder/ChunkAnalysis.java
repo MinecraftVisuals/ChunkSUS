@@ -6,6 +6,8 @@ package com.suschunkfinder;
  */
 final class ChunkAnalysis {
     static final int MIN_TUNNEL_RUN = 10;
+    /** This many PvP leftovers (anchors, glowstone, tnt...) in one chunk = combat zone. */
+    static final int COMBAT_ZONE_THRESHOLD = 3;
 
     final int densestWindow;
     final int totalWeight;
@@ -30,6 +32,13 @@ final class ChunkAnalysis {
     }
 
     static ChunkAnalysis analyze(byte[] cls, int rows, int bottomY) {
+        // Pass 1: is this a PvP area?
+        int combat = 0;
+        for (byte b : cls) {
+            if (b == BlockClassifier.COMBAT) combat++;
+        }
+        boolean combatZone = combat >= COMBAT_ZONE_THRESHOLD;
+
         int cellRows = (rows + 3) >> 2;
         int[] cells = new int[cellRows * 16];
         int total = 0;
@@ -45,7 +54,8 @@ final class ChunkAnalysis {
                     if (c == BlockClassifier.STRONG_MARKER) { strong++; continue; }
                     if (c == BlockClassifier.WEAK_MARKER) { weak++; continue; }
                     if (c == BlockClassifier.STONE_BRICK) { stoneBricks++; continue; }
-                    int w = BlockClassifier.WEIGHTS[c];
+                    if (c == BlockClassifier.COMBAT) continue;
+                    int w = (c == BlockClassifier.KIT && combatZone) ? 0 : BlockClassifier.WEIGHTS[c];
                     if (w == 0) continue;
                     cells[((y >> 2) << 4) | ((z >> 2) << 2) | (x >> 2)] += w;
                     total += w;
@@ -86,7 +96,6 @@ final class ChunkAnalysis {
 
     /**
      * Counts blocks that belong to long, straight, 1-wide tunnels (2 or 3 high) enclosed by solid blocks.
-     * Natural caves are irregular; dug highways and strip mines are not.
      */
     private static int countTunnels(byte[] cls, int rows) {
         int total = 0;
