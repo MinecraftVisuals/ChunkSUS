@@ -4,6 +4,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.World;
@@ -34,6 +36,7 @@ public final class ChunkScanner {
     // main thread only
     private static final Deque<ChunkPos> QUEUE = new ArrayDeque<>();
     private static final Set<ChunkPos> QUEUED = new HashSet<>();
+    private static final Set<ChunkPos> ANNOUNCED = new HashSet<>();
     private static ClientWorld lastWorld;
     private static int lastConfigVersion = -1;
     private static int ticks;
@@ -99,6 +102,7 @@ public final class ChunkScanner {
             QUEUED.clear();
             LOADED.clear();
             RESULTS.clear();
+            ANNOUNCED.clear();
             flagged = Map.of();
             lastWorld = world;
         }
@@ -181,9 +185,20 @@ public final class ChunkScanner {
             double score = a.rawScore();
             if (score <= 0) continue;
             if (cfg.ignoreNaturalStructures && naturalNearby(p)) score *= 0.4;
-            if (score >= threshold) out.put(p, new Flagged(p, score, a.minY, a.maxY));
+            if (score >= threshold) {
+                out.put(p, new Flagged(p, score, a.minY, a.maxY));
+                if (ANNOUNCED.add(p)) announce();
+            }
         }
         flagged = out;
+    }
+
+    private static void announce() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player == null) return;
+        Text msg = Text.literal("[DYLAN]").styled(s -> s.withColor(0xF050F8))
+                .append(Text.literal(" Sus Chunk Found!").formatted(Formatting.WHITE));
+        mc.player.sendMessage(msg, false);
     }
 
     private static boolean naturalNearby(ChunkPos p) {
